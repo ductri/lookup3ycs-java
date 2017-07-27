@@ -1,0 +1,16 @@
+{
+  "name": "Lookup3Signature",
+  "version": "1.0.0",
+  "keywords": [
+    "util",
+    "functional",
+    "server",
+    "client",
+    "browser"
+  ],
+  "author": "user",
+  "contributors": [],
+  "dependencies": {
+    "codepoint": "0.0.0"
+  }
+}
