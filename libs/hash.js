@@ -1,63 +1,74 @@
 var Character = require('codepoint');
+var Int64 = require('n64');
 var Hash = function() {
     
 };
 
 Hash.lookup3ycs64 = function(s,start, end, initval) {
-    var a,b,c;
-    console.log("initval: " + initval);
-    a = b = c = 0xdeadbeef + parseInt(initval);
-    console.log("a=b=c: ", a);
-    c += parseInt(initval>>>32);
+    var abc = new Int32Array(3);
+    for (var i=0;i<abc.length;i++) {
+        abc[i] = 0xdeadbeef + initval.toInt();
 
-    console.log("c: ", c);
+    }
+
+    abc[2] += initval.ishrn(32).toInt();
+
         // only difference from lookup3 is that "+ (length<<2)" is missing
         // since we don't know the number of code points to start with,
         // and don't want to have to pre-scan the string to find out.
-
     var i=start;
     var mixed=true;  // have the 3 state variables been adequately mixed?
-        for(;;) {
-            if (i>= end) break;
-            mixed=false;
-            var ch;
-            ch = s.charAt(i++);
-            a += Character.isHighSurrogate(ch) && i< end ? Character.toCodePoint(ch, s.charAt(i++)) : ch;
-            if (i>= end) break;
-            ch = s.charAt(i++);
-            b += Character.isHighSurrogate(ch) && i< end ? Character.toCodePoint(ch, s.charAt(i++)) : ch;
-            if (i>= end) break;
-            ch = s.charAt(i++);
-            c += Character.isHighSurrogate(ch) && i< end ? Character.toCodePoint(ch, s.charAt(i++)) : ch;
-            if (i>= end) break;
+    for(;;) {
+        if (i>= end) break;
+        mixed=false;
+        var ch;
+        ch = s.charCodeAt(i++);
 
-            // mix(a,b,c)... Java needs "out" parameters!!!
-            // Note: recent JVMs (Sun JDK6) turn pairs of shifts (needed to do a rotate)
-            // into real x86 rotate instructions.
-            {
-                a -= c;  a ^= (c<<4)|(c>>>-4);   c += b;
-                b -= a;  b ^= (a<<6)|(a>>>-6);   a += c;
-                c -= b;  c ^= (b<<8)|(b>>>-8);   b += a;
-                a -= c;  a ^= (c<<16)|(c>>>-16); c += b;
-                b -= a;  b ^= (a<<19)|(a>>>-19); a += c;
-                c -= b;  c ^= (b<<4)|(b>>>-4);   b += a;
-            }
-            mixed=true;
+        abc[0] += Character.isHighSurrogate(ch) && i< end ? Character.toCodePoint(ch, s.charAt(i++)) : ch;
+
+        if (i>= end) break;
+        ch = s.charCodeAt(i++);
+        abc[1] += Character.isHighSurrogate(ch) && i< end ? Character.toCodePoint(ch, s.charAt(i++)) : ch;
+        if (i>= end) break;
+        ch = s.charCodeAt(i++);
+        abc[2] += Character.isHighSurrogate(ch) && i< end ? Character.toCodePoint(ch, s.charAt(i++)) : ch;
+        if (i>= end) break;
+
+        // mix(a,b,c)... Java needs "out" parameters!!!
+        // Note: recent JVMs (Sun JDK6) turn pairs of shifts (needed to do a rotate)
+        // into real x86 rotate instructions.
+
+        {
+            abc[0] -= abc[2];  abc[0] ^= (abc[2]<<4)|(abc[2]>>>-4);   abc[2] += abc[1];
+            abc[1] -= abc[0];  abc[1] ^= (abc[0]<<6)|(abc[0]>>>-6);   abc[0] += abc[2];
+            abc[2] -= abc[1];  abc[2] ^= (abc[1]<<8)|(abc[1]>>>-8);   abc[1] += abc[0];
+            abc[0] -= abc[2];  abc[0] ^= (abc[2]<<16)|(abc[2]>>>-16); abc[2] += abc[1];
+            abc[1] -= abc[0];  abc[1] ^= (abc[0]<<19)|(abc[0]>>>-19); abc[0] += abc[2];
+            abc[2] -= abc[1];  abc[2] ^= (abc[1]<<4)|(abc[1]>>>-4);   abc[1] += abc[0];
         }
+        mixed=true;
+    }
 
-
-        if (!mixed) {
-            // final(a,b,c)
-            c ^= b; c -= (b<<14)|(b>>>-14);
-            a ^= c; a -= (c<<11)|(c>>>-11);
-            b ^= a; b -= (a<<25)|(a>>>-25);
-            c ^= b; c -= (b<<16)|(b>>>-16);
-            a ^= c; a -= (c<<4)|(c>>>-4);
-            b ^= a; b -= (a<<14)|(a>>>-14);
-            c ^= b; c -= (b<<24)|(b>>>-24);
-        }
-
-        return c + ((b) << 32);
+    if (!mixed) {
+        // final(a,b,c)
+        abc[2] ^= abc[1]; abc[2] -= (abc[1]<<14)|(abc[1]>>>-14);
+        abc[0] ^= abc[2]; abc[0] -= (abc[2]<<11)|(abc[2]>>>-11);
+        abc[1] ^= abc[0]; abc[1] -= (abc[0]<<25)|(abc[0]>>>-25);
+        abc[2] ^= abc[1]; abc[2] -= (abc[1]<<16)|(abc[1]>>>-16);
+        abc[0] ^= abc[2]; abc[0] -= (abc[2]<<4)|(abc[2]>>>-4);
+        abc[1] ^= abc[0]; abc[1] -= (abc[0]<<14)|(abc[0]>>>-14);
+        abc[2] ^= abc[1]; abc[2] -= (abc[1]<<24)|(abc[1]>>>-24);
+    }
+    
+    var b = Int64.fromInt(abc[1], true);
+    
+    b = b.ishln(32);
+    
+    var c = Int64.fromInt(abc[2], true);
+    
+    var result = c.iadd(b);
+    
+    return result;
 };
 
 module.exports = Hash;
